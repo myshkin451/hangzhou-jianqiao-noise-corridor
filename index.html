@@ -384,6 +384,7 @@ const COPY = {
     sources: [
       ["杭网议事厅噪音投诉记录", "https://yst.hangzhou.com.cn/question.php?question_id=181113171468"],
       ["《笕桥机场跑道基础灌浆加固》工程概况", "https://www.cgejournal.com/article/id/9496"],
+      ["Esri World Imagery 底图署名说明", "https://support.esri.com/en-us/knowledge-base/what-is-the-correct-way-to-cite-an-arcgis-online-basema-000012040"],
       ["Nominatim 使用政策", "https://operations.osmfoundation.org/policies/nominatim/"]
     ],
     offline: "底图可能未加载：请确保浏览器能访问 OpenStreetMap / Leaflet CDN。",
@@ -456,6 +457,7 @@ const COPY = {
     sources: [
       ["Hangzhou public complaint record", "https://yst.hangzhou.com.cn/question.php?question_id=181113171468"],
       ["Runway reinforcement article mentioning runway dimensions", "https://www.cgejournal.com/article/id/9496"],
+      ["Esri World Imagery attribution guidance", "https://support.esri.com/en-us/knowledge-base/what-is-the-correct-way-to-cite-an-arcgis-online-basema-000012040"],
       ["Nominatim usage policy", "https://operations.osmfoundation.org/policies/nominatim/"]
     ],
     offline: "Base map may not be loaded. Please make sure OpenStreetMap / Leaflet CDN is reachable.",
@@ -557,7 +559,15 @@ const carto = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{
   maxZoom: 19,
   attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
 });
-const layerControl = L.control.layers({ "OSM": osm, "Light": carto }, null, { collapsed: true }).addTo(map);
+const esriImagery = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+  maxZoom: 19,
+  attribution: "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community"
+});
+const layerControl = L.control.layers({
+  "OSM 标准 / Standard": osm,
+  "浅色地图 / Light": carto,
+  "卫星影像 / Satellite": esriImagery
+}, null, { collapsed: true }).addTo(map);
 const linePts = [DATA.west, DATA.airport, DATA.east];
 const placeLayer = L.layerGroup().addTo(map);
 let airportMarker;
