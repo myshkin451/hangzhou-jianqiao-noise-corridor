@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>杭州笕桥机场公开资料版噪声风险走廊图</title>
+<meta name="description" content="基于公开资料绘制的杭州笕桥机场噪声风险走廊初筛地图，用于看房前排雷，不代表官方航线或噪声环评结论。" />
+<meta property="og:title" content="杭州笕桥机场噪声风险走廊图" />
+<meta property="og:description" content="公开资料推断版，看房初筛用，不是官方航线图。" />
+<meta property="og:type" content="website" />
+<meta name="theme-color" content="#0f172a" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #ffffff;
+    --panel-soft: #f8fafc;
+    --text: #0f172a;
+    --muted: #64748b;
+    --line: #dbe3ee;
+    --blue: #2563eb;
+    --red: #ef4444;
+    --orange: #f97316;
+    --yellow: #eab308;
+    --green: #16a34a;
+    --shadow: 0 18px 45px rgba(15, 23, 42, .16);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Microsoft YaHei", Arial, sans-serif;
+    background: #e6eef8;
+  }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  button, input, select { font: inherit; }
+  button, select {
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button:hover { background: #e2e8f0; }
+  button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, .26);
+    outline-offset: 2px;
+  }
+  input[type="text"] {
+    flex: 1;
+    min-width: 190px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 13px;
+  }
+  h1 { font-size: 21px; line-height: 1.28; margin: 0 0 8px; }
+  h2 { font-size: 15px; margin: 20px 0 9px; }
+  p { font-size: 13px; line-height: 1.65; margin: 8px 0; color: #334155; }
+
+  #app { height: 100svh; min-height: 620px; display: flex; }
+  #sidebar {
+    width: 430px;
+    max-width: 48vw;
+    min-width: 350px;
+    overflow: auto;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    z-index: 1000;
+    padding: 18px 18px 22px;
+  }
+  #map { flex: 1; min-width: 0; }
+
+  .topline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .small { font-size: 12px; color: var(--muted); }
+  .lang-switch {
+    display: inline-flex;
+    flex: 0 0 auto;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f8fafc;
+  }
+  .lang-switch button {
+    border: 0;
+    border-radius: 0;
+    padding: 6px 8px;
+    background: transparent;
+  }
+  .lang-switch button[aria-pressed="true"] {
+    background: var(--text);
+    color: #fff;
+  }
+  .notice {
+    border-left: 4px solid var(--orange);
+    padding: 10px 12px;
+    background: #fff7ed;
+    border-radius: 8px;
+  }
+  .panel {
+    border: 1px solid var(--line);
+    background: var(--panel-soft);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .legend-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 13px;
+    margin: 7px 0;
+  }
+  .swatch {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 12px;
+    border-radius: 3px;
+    opacity: .76;
+    border: 1px solid rgba(15, 23, 42, .18);
+  }
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .button-primary {
+    background: #0f172a;
+    border-color: #0f172a;
+    color: #fff;
+  }
+  .button-primary:hover { background: #1e293b; }
+  .result {
+    font-size: 13px;
+    background: var(--panel-soft);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 10px;
+    line-height: 1.55;
+  }
+  .results-list {
+    display: grid;
+    gap: 7px;
+    margin-top: 9px;
+  }
+  .result-choice {
+    width: 100%;
+    text-align: left;
+    background: #fff;
+    line-height: 1.45;
+  }
+  .risk-red { color: #b91c1c; font-weight: 700; }
+  .risk-orange { color: #c2410c; font-weight: 700; }
+  .risk-yellow { color: #a16207; font-weight: 700; }
+  .risk-green { color: #15803d; font-weight: 700; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 14px;
+    font-size: 12px;
+  }
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: 7px 6px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  th { color: #475569; font-weight: 650; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #f8fafc; }
+  .checklist {
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 7px;
+  }
+  .checklist li {
+    position: relative;
+    padding-left: 20px;
+    color: #334155;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .checklist li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: .62em;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--blue);
+  }
+  .leaflet-popup-content {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Microsoft YaHei", Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .label {
+    background: rgba(255, 255, 255, .86);
+    border: 1px solid rgba(15, 23, 42, .18);
+    border-radius: 8px;
+    padding: 2px 6px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .12);
+    font-size: 12px;
+  }
+  .no-base {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1200;
+    display: none;
+    background: #fffbeb;
+    border: 1px solid #f59e0b;
+    color: #92400e;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+  .source-list {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .source-list a { font-size: 12px; line-height: 1.45; }
+  .footer-note { padding-bottom: 10px; }
+
+  @media (max-width: 860px) {
+    #app { display: block; min-height: 100svh; }
+    #sidebar {
+      width: auto;
+      max-width: none;
+      min-width: 0;
+      height: 48svh;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, .16);
+    }
+    #map { height: 52svh; min-height: 360px; }
+    .topline { align-items: flex-start; }
+    h1 { font-size: 19px; }
+  }
+  @media (max-width: 420px) {
+    #sidebar { padding: 15px 14px 20px; }
+    input[type="text"] { min-width: 100%; }
+    .toolbar button, .toolbar select { flex: 1; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar" aria-label="Noise risk controls and explanation">
+    <div class="topline">
+      <div>
+        <h1 id="title"></h1>
+        <p class="small" id="subtitle"></p>
+      </div>
+      <div class="lang-switch" aria-label="Language">
+        <button id="langZh" type="button" aria-pressed="true">中文</button>
+        <button id="langEn" type="button" aria-pressed="false">EN</button>
+      </div>
+    </div>
+
+    <div class="notice">
+      <p id="leadNotice"></p>
+    </div>
+
+    <h2 id="legendTitle"></h2>
+    <div id="legendRows"></div>
+
+    <div class="toolbar">
+      <label class="small" id="modeLabel" for="modeSelect"></label>
+      <select id="modeSelect"></select>
+      <button id="fitBtn" type="button"></button>
+      <button id="clearBtn" type="button"></button>
+    </div>
+
+    <h2 id="searchTitle"></h2>
+    <div class="toolbar">
+      <input id="searchBox" type="text" aria-label="Search a neighborhood or transit station" />
+      <button id="searchBtn" type="button" class="button-primary"></button>
+    </div>
+    <p class="small" id="searchHint"></p>
+    <div id="searchResults" class="results-list"></div>
+    <div id="result" class="result" aria-live="polite"></div>
+
+    <div class="toolbar">
+      <button id="locateBtn" type="button"></button>
+      <button id="shareBtn" type="button"></button>
+    </div>
+
+    <h2 id="checklistTitle"></h2>
+    <div class="panel">
+      <ul id="checklist" class="checklist"></ul>
+    </div>
+
+    <h2 id="placesTitle"></h2>
+    <table id="placeTable">
+      <thead><tr><th id="thPlace"></th><th id="thRisk"></th><th id="thNote"></th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h2 id="methodTitle"></h2>
+    <div class="panel footer-note">
+      <p id="methodText"></p>
+      <p class="small" id="privacyText"></p>
+      <div class="source-list" id="sourceLinks"></div>
+    </div>
+  </aside>
+  <main id="map" aria-label="Interactive map"></main>
+</div>
+<div id="offlineNotice" class="no-base"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const SITE_URL = "https://myshkin451.github.io/hangzhou-jianqiao-noise-corridor/";
+
+const COPY = {
+  zh: {
+    htmlLang: "zh-CN",
+    pageTitle: "杭州笕桥机场公开资料版噪声风险走廊图",
+    description: "基于公开资料绘制的杭州笕桥机场噪声风险走廊初筛地图，用于看房前排雷，不代表官方航线或噪声环评结论。",
+    title: "杭州笕桥机场噪声风险走廊图",
+    subtitle: "公开资料推断版 · 用于看房初筛，不是官方航线图",
+    lead: "<b>先说清楚：</b>军用机场不会公开精确航线、训练时间和实时轨迹。这张图只根据公开的机场位置、跑道方向、杭州城西噪声讨论，画出“可能受影响的宽走廊”。它适合做买房/租房前的排雷，不适合当法律或工程结论。",
+    legendTitle: "怎么看颜色",
+    legend: [
+      ["#ef4444", "<b>红色：</b>强关注，能避则避，尤其老人/孩子/睡眠浅"],
+      ["#f97316", "<b>橙色：</b>谨慎，至少工作日白天和晚上各去蹲点"],
+      ["#eab308", "<b>黄色：</b>可能听到，更多取决于楼层、朝向和天气"],
+      ["#94a3b8", "<b>灰线：</b>公开资料推断的跑道轴线延长方向"]
+    ],
+    modeLabel: "风险口径：",
+    modes: { default: "默认", strict: "更保守", loose: "更宽松" },
+    fit: "回到全图",
+    clear: "清除查询点",
+    searchTitle: "查一个小区/地铁站",
+    searchPlaceholder: "例如：古荡新村、翠苑一区、杭州市某小区",
+    searchButton: "搜索并评估",
+    searchHint: "搜索使用 OpenStreetMap/Nominatim，中文小区命中率不一定高。更稳的方法：在地图上手动点一下候选小区位置。不要输入姓名、电话、门牌号等私人信息。",
+    searching: "正在搜索……",
+    noResults: "没搜到。可以换成“区名+道路名/地铁站名”，或者直接在地图上点击位置。",
+    searchError: "搜索失败。你可以直接在地图上点击候选小区位置来评估。",
+    resultDefault: "在地图上点击任意位置，或搜索小区/地铁站，会显示它到推断走廊中心线、到机场的大致距离和风险档位。",
+    chooseResult: "请选择最接近的结果",
+    locate: "用当前位置评估",
+    locating: "正在获取当前位置……",
+    locateError: "无法获取当前位置。你仍然可以在地图上手动点击。",
+    share: "复制当前链接",
+    copied: "已复制链接",
+    copyFailed: "复制失败，可直接复制浏览器地址栏。",
+    clicked: "你点击的位置",
+    currentLocation: "当前位置",
+    airportName: "笕桥机场",
+    airportPopup: "<b>笕桥机场近似中心</b><br>公开资料显示为军用机场。",
+    axisPopup: "公开资料推断的跑道轴线延长方向，非官方航线。",
+    checklistTitle: "实地核验清单",
+    checklist: [
+      "工作日白天、晚间、周末各去一次，不要只看一次。",
+      "站在卧室和客厅窗边听；同一小区不同楼栋差异可能很大。",
+      "问物业、保安、邻居最近一个月的训练噪声，而不是只问“吵不吵”。",
+      "睡眠浅、婴幼儿、老人或居家办公人群，把橙色区域也当作高风险处理。",
+      "如果你已经在红/橙区域内喜欢某套房，先租住或多次蹲点，再做长期决定。"
+    ],
+    placesTitle: "重点片区速览",
+    thPlace: "片区",
+    thRisk: "初筛",
+    thNote: "说明",
+    methodTitle: "方法、来源和隐私",
+    method: "图上的宽度档位是看房初筛模型，不是噪声环评分贝线。模型用机场近似中心、跑道轴线延长线、到轴线距离和到机场距离给出风险档位；音爆、天气、训练科目和楼体隔音会让真实体感出现偏差。",
+    privacy: "搜索请求会直接发送给 Nominatim；定位功能只在你主动点击并授权后使用浏览器定位，本页不会收集或上传你的当前位置。",
+    sources: [
+      ["杭网议事厅噪音投诉记录", "https://yst.hangzhou.com.cn/question.php?question_id=181113171468"],
+      ["《笕桥机场跑道基础灌浆加固》工程概况", "https://www.cgejournal.com/article/id/9496"],
+      ["Nominatim 使用政策", "https://operations.osmfoundation.org/policies/nominatim/"]
+    ],
+    offline: "底图可能未加载：请确保浏览器能访问 OpenStreetMap / Leaflet CDN。",
+    popup: {
+      line: "到推断走廊中心线",
+      airport: "到机场中心",
+      note: "说明"
+    },
+    risk: {
+      red: ["红色强关注", "看房建议直接列入高风险；除非你已经多次实地确认可接受，否则不建议作为首选。"],
+      orange: ["橙色谨慎", "需要重点实地验证：工作日白天、晚间、周末都去听；注意楼层和朝向。"],
+      yellow: ["黄色观察", "可能偶发听到轰鸣或受天气影响；小区内部楼栋差异会很大。"],
+      outer: ["外围", "按这个模型不在主要走廊内，但音爆和远距离轰鸣不能完全排除。"]
+    },
+    km: "公里"
+  },
+  en: {
+    htmlLang: "en",
+    pageTitle: "Hangzhou Jianqiao Airport Noise Risk Corridor Map",
+    description: "A public-source, non-official screening map for possible noise exposure near Hangzhou Jianqiao Airport. Useful before renting or buying, not an official flight path or acoustic assessment.",
+    title: "Hangzhou Jianqiao Airport Noise Risk Corridor",
+    subtitle: "Public-source screening map · Not an official flight path",
+    lead: "<b>Important:</b> military airfields do not publish exact routes, training schedules, or real-time tracks. This map uses public airport information, runway-axis inference, and local noise discussions to sketch a broad possible exposure corridor. Use it as an early rental/buying filter, not as a legal, engineering, or official acoustic conclusion.",
+    legendTitle: "How to read the colors",
+    legend: [
+      ["#ef4444", "<b>Red:</b> high attention; avoid if possible, especially for light sleepers, children, and older residents"],
+      ["#f97316", "<b>Orange:</b> be cautious; visit on weekdays, evenings, and weekends before deciding"],
+      ["#eab308", "<b>Yellow:</b> possible exposure; floor, window direction, and weather matter"],
+      ["#94a3b8", "<b>Gray line:</b> inferred runway-axis extension from public information"]
+    ],
+    modeLabel: "Risk model:",
+    modes: { default: "Default", strict: "More cautious", loose: "Less cautious" },
+    fit: "Full map",
+    clear: "Clear point",
+    searchTitle: "Search a compound or metro station",
+    searchPlaceholder: "Try Gudang, Cuiyuan, or a Hangzhou compound name",
+    searchButton: "Search & rate",
+    searchHint: "Search uses OpenStreetMap/Nominatim and may miss local compound names. Manual map clicks are often more reliable. Do not enter names, phone numbers, room numbers, or other private information.",
+    searching: "Searching...",
+    noResults: "No result found. Try a district plus road or metro station, or click the map manually.",
+    searchError: "Search failed. You can still click the map to rate a location.",
+    resultDefault: "Click anywhere on the map, or search a compound/station, to see approximate distance to the inferred corridor centerline, distance to the airfield, and risk level.",
+    chooseResult: "Choose the closest result",
+    locate: "Rate my location",
+    locating: "Getting your location...",
+    locateError: "Could not get your location. You can still click the map manually.",
+    share: "Copy current link",
+    copied: "Link copied",
+    copyFailed: "Copy failed. You can copy the browser address bar.",
+    clicked: "Clicked location",
+    currentLocation: "Current location",
+    airportName: "Jianqiao Airport",
+    airportPopup: "<b>Approximate Jianqiao Airport center</b><br>Public sources describe it as a military airfield.",
+    axisPopup: "Inferred runway-axis extension from public information; not an official route.",
+    checklistTitle: "On-site listening checklist",
+    checklist: [
+      "Visit on a weekday daytime, evening, and weekend; one visit is not enough.",
+      "Listen by bedroom and living-room windows; buildings inside one compound can differ sharply.",
+      "Ask property staff, guards, and neighbors about training noise during the past month.",
+      "If you are sensitive to sleep disruption, have small children, older residents, or work from home, treat orange areas as high risk.",
+      "If you strongly like a home in a red/orange area, do repeated on-site checks or a short rental before a long-term decision."
+    ],
+    placesTitle: "Area quick scan",
+    thPlace: "Area",
+    thRisk: "Screening",
+    thNote: "Note",
+    methodTitle: "Method, sources, privacy",
+    method: "The colored bands are a practical screening model, not official decibel contours. The model combines an approximate airport center, inferred runway-axis extension, distance to that axis, and distance to the airfield. Sonic booms, weather, training type, floor height, window direction, and building insulation can all change real experience.",
+    privacy: "Searches are sent directly to Nominatim. Location is used only if you click the location button and grant browser permission; this page does not collect or upload your location.",
+    sources: [
+      ["Hangzhou public complaint record", "https://yst.hangzhou.com.cn/question.php?question_id=181113171468"],
+      ["Runway reinforcement article mentioning runway dimensions", "https://www.cgejournal.com/article/id/9496"],
+      ["Nominatim usage policy", "https://operations.osmfoundation.org/policies/nominatim/"]
+    ],
+    offline: "Base map may not be loaded. Please make sure OpenStreetMap / Leaflet CDN is reachable.",
+    popup: {
+      line: "Distance to inferred corridor centerline",
+      airport: "Distance to airport center",
+      note: "Note"
+    },
+    risk: {
+      red: ["Red high attention", "Treat this as high risk when screening homes. Unless you have repeatedly verified that the noise is acceptable, it should not be your first choice."],
+      orange: ["Orange cautious", "Verify carefully on site: weekday daytime, evening, and weekend. Floor and window direction matter."],
+      yellow: ["Yellow watch", "You may occasionally hear rumble or weather-related noise. Differences inside one compound can be large."],
+      outer: ["Outer area", "This model does not place it in the main corridor, but sonic booms and distant rumble cannot be fully ruled out."]
+    },
+    km: "km"
+  }
+};
+
+const DATA = {
+  airport: [30.3353, 120.241],
+  west: [30.240169, 119.98228],
+  east: [30.42992, 120.500222],
+  places: [
+    ["留下/五常东侧", "Liuxia / east Wuchang", 30.2505, 120.045, "城西西端，靠近公开讨论图红带西段", "Western edge of the city; near the western part of public discussion maps"],
+    ["西溪/蒋村南侧", "Xixi / south Jiangcun", 30.267, 120.08, "靠近跑道轴线西延方向", "Near the inferred western runway-axis extension"],
+    ["古荡/古翠路一带", "Gudang / Gucui Road", 30.2755, 120.1165, "城西老住宅密集区，公开讨论里常被提到", "Dense older residential area often mentioned in local discussions"],
+    ["黄姑山/文三路", "Huanggu Mountain / Wensan Road", 30.2795, 120.142, "文教区北侧，靠近西延走廊", "North side of the education district, near the inferred west corridor"],
+    ["翠苑/文一路", "Cuiyuan / Wenyi Road", 30.292, 120.1305, "在公开讨论图中靠近红带北缘", "Near the northern edge of the public-discussion red band"],
+    ["九莲/浙江工商大学周边", "Jiulian / Zhejiang Gongshang Univ.", 30.2858, 120.1465, "文教区，按走廊模型属重点关注", "Education district; important to verify under this corridor model"],
+    ["文二路/文教", "Wener Road / Wenjiao", 30.2898, 120.157, "城西—城北过渡段", "Transition area between west and north Hangzhou"],
+    ["大关/德胜路", "Daguan / Desheng Road", 30.306, 120.165, "走廊中段北侧，视具体小区位置差异较大", "North side of the mid corridor; compound-level differences can be large"],
+    ["三里亭/闸弄口", "Sanliting / Zhanongkou", 30.3062, 120.194, "机场西南侧近端，低空噪声更要谨慎", "Southwest near-end area; low-altitude noise deserves caution"],
+    ["濮家/艮山门北", "Pujia / north Genshan Gate", 30.314, 120.205, "靠近机场西侧进近方向", "Near the western approach side of the airfield"],
+    ["笕桥/机场路", "Jianqiao / Airport Road", 30.337, 120.236, "机场近端，噪声和净空影响都强", "Near the airfield; noise and clearance constraints are both important"],
+    ["同协路/丁桥南", "Tongxie Road / south Dingqiao", 30.3528, 120.268, "机场东北侧延长线附近", "Near the northeastern extension"],
+    ["丁桥南部/华丰", "South Dingqiao / Huafeng", 30.3608, 120.284, "东北延长线外侧，需实地验证", "Outside the northeastern extension; verify on site"],
+    ["乔司南/临平南苑南侧", "South Qiaosi / south Linping Nanyuan", 30.39, 120.319, "东北延长线方向，影响不稳定", "Northeastern direction; exposure may be inconsistent"],
+    ["海宁西/许村方向", "West Haining / Xucun direction", 30.43, 120.5, "远端延长线方向，更多是低频轰鸣/音爆不确定性", "Far-end extension; low-frequency rumble or sonic-boom uncertainty"],
+    ["下沙核心区", "Core Xiasha", 30.3155, 120.35, "不在本模型中心线附近；若听到巨响，多半不能按普通航线判断", "Not near the model centerline; loud bangs may not follow ordinary route logic"],
+    ["萧山钱江世纪城", "Xiaoshan Qianjiang Century City", 30.239, 120.241, "主要不属于笕桥轴线噪声带，需另看萧山机场和城市噪声", "Mostly outside this Jianqiao axis model; consider Xiaoshan Airport and urban noise separately"]
+  ]
+};
+
+const state = {
+  modes: {
+    loose: { red: 0.55, orange: 1.10, yellow: 2.20, airportCore: 1.8, airportWatch: 4.0 },
+    default: { red: 0.80, orange: 1.60, yellow: 3.00, airportCore: 2.5, airportWatch: 5.0 },
+    strict: { red: 1.20, orange: 2.50, yellow: 4.00, airportCore: 3.2, airportWatch: 6.5 }
+  },
+  lang: preferredLang(),
+  mode: "default",
+  query: null,
+  queryLayer: null,
+  corridorLayers: [],
+  restoredFromHash: false
+};
+
+const els = {
+  title: document.getElementById("title"),
+  subtitle: document.getElementById("subtitle"),
+  leadNotice: document.getElementById("leadNotice"),
+  legendTitle: document.getElementById("legendTitle"),
+  legendRows: document.getElementById("legendRows"),
+  modeLabel: document.getElementById("modeLabel"),
+  modeSelect: document.getElementById("modeSelect"),
+  fitBtn: document.getElementById("fitBtn"),
+  clearBtn: document.getElementById("clearBtn"),
+  searchTitle: document.getElementById("searchTitle"),
+  searchBox: document.getElementById("searchBox"),
+  searchBtn: document.getElementById("searchBtn"),
+  searchHint: document.getElementById("searchHint"),
+  searchResults: document.getElementById("searchResults"),
+  result: document.getElementById("result"),
+  locateBtn: document.getElementById("locateBtn"),
+  shareBtn: document.getElementById("shareBtn"),
+  checklistTitle: document.getElementById("checklistTitle"),
+  checklist: document.getElementById("checklist"),
+  placesTitle: document.getElementById("placesTitle"),
+  thPlace: document.getElementById("thPlace"),
+  thRisk: document.getElementById("thRisk"),
+  thNote: document.getElementById("thNote"),
+  methodTitle: document.getElementById("methodTitle"),
+  methodText: document.getElementById("methodText"),
+  privacyText: document.getElementById("privacyText"),
+  sourceLinks: document.getElementById("sourceLinks"),
+  offlineNotice: document.getElementById("offlineNotice"),
+  langZh: document.getElementById("langZh"),
+  langEn: document.getElementById("langEn")
+};
+
+const map = L.map("map", { zoomControl: true, preferCanvas: true })
+  .setView([30.305, 120.215], 11);
+
+const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: "&copy; OpenStreetMap contributors"
+}).addTo(map);
+const carto = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+  maxZoom: 19,
+  attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
+});
+const layerControl = L.control.layers({ "OSM": osm, "Light": carto }, null, { collapsed: true }).addTo(map);
+const linePts = [DATA.west, DATA.airport, DATA.east];
+const placeLayer = L.layerGroup().addTo(map);
+let airportMarker;
+let airportLabel;
+
+function preferredLang() {
+  const stored = localStorage.getItem("jianqiao-noise-lang");
+  if (stored === "zh" || stored === "en") return stored;
+  return navigator.language && navigator.language.toLowerCase().startsWith("en") ? "en" : "zh";
+}
+
+function t() { return COPY[state.lang]; }
+function rad(d) { return d * Math.PI / 180; }
+function haversineKm(a, b) {
+  const R = 6371.0088;
+  const dLat = rad(b[0] - a[0]), dLng = rad(b[1] - a[1]);
+  const lat1 = rad(a[0]), lat2 = rad(b[0]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+const lat0 = DATA.airport[0], lng0 = DATA.airport[1];
+function toXY(p) {
+  return {
+    x: (p[1] - lng0) * 111.320 * Math.cos(rad(lat0)),
+    y: (p[0] - lat0) * 110.574
+  };
+}
+function fromXY(xy) {
+  return [
+    xy.y / 110.574 + lat0,
+    xy.x / (111.320 * Math.cos(rad(lat0))) + lng0
+  ];
+}
+function distPointSegmentKm(p, a, b) {
+  const P = toXY(p), A = toXY(a), B = toXY(b);
+  const vx = B.x - A.x, vy = B.y - A.y;
+  const wx = P.x - A.x, wy = P.y - A.y;
+  const c2 = vx * vx + vy * vy;
+  let hit = c2 ? (wx * vx + wy * vy) / c2 : 0;
+  hit = Math.max(0, Math.min(1, hit));
+  const Q = { x: A.x + hit * vx, y: A.y + hit * vy };
+  return Math.sqrt((P.x - Q.x) ** 2 + (P.y - Q.y) ** 2);
+}
+function corridorPolygon(widthKm) {
+  const A = toXY(DATA.west), B = toXY(DATA.east);
+  const vx = B.x - A.x, vy = B.y - A.y;
+  const len = Math.sqrt(vx * vx + vy * vy);
+  const nx = -vy / len, ny = vx / len;
+  return [
+    fromXY({ x: A.x + nx * widthKm, y: A.y + ny * widthKm }),
+    fromXY({ x: B.x + nx * widthKm, y: B.y + ny * widthKm }),
+    fromXY({ x: B.x - nx * widthKm, y: B.y - ny * widthKm }),
+    fromXY({ x: A.x - nx * widthKm, y: A.y - ny * widthKm })
+  ];
+}
+function riskAt(p) {
+  const m = state.modes[state.mode];
+  const dLine = distPointSegmentKm(p, DATA.west, DATA.east);
+  const dAirport = haversineKm(p, DATA.airport);
+  let key = "outer";
+  if (dLine <= m.red || dAirport <= m.airportCore) key = "red";
+  else if (dLine <= m.orange || dAirport <= m.airportWatch) key = "orange";
+  else if (dLine <= m.yellow) key = "yellow";
+  const cls = key === "red" ? "risk-red" : key === "orange" ? "risk-orange" : key === "yellow" ? "risk-yellow" : "risk-green";
+  return { dLine, dAirport, key, cls, level: t().risk[key][0], advice: t().risk[key][1] };
+}
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[ch]));
+}
+function localizedPlace(pl) {
+  return {
+    name: state.lang === "zh" ? pl[0] : pl[1],
+    lat: pl[2],
+    lng: pl[3],
+    note: state.lang === "zh" ? pl[4] : pl[5]
+  };
+}
+function popupHtml(title, p, note = "") {
+  const r = riskAt(p);
+  const c = t();
+  return `<b>${escapeHtml(title)}</b><br>
+    <span class="${r.cls}">${escapeHtml(r.level)}</span><br>
+    ${c.popup.line}: ${r.dLine.toFixed(2)} ${c.km}<br>
+    ${c.popup.airport}: ${r.dAirport.toFixed(2)} ${c.km}<br>
+    <span style="color:#475569">${escapeHtml(r.advice)}</span>
+    ${note ? `<br><span style="color:#64748b">${c.popup.note}: ${escapeHtml(note)}</span>` : ""}`;
+}
+function markerColor(levelKey) {
+  return levelKey === "red" ? "#ef4444" : levelKey === "orange" ? "#f97316" : levelKey === "yellow" ? "#eab308" : "#16a34a";
+}
+function makeDot(color) {
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:12px;height:12px;border-radius:999px;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+  });
+}
+function drawCorridors() {
+  state.corridorLayers.forEach(layer => map.removeLayer(layer));
+  state.corridorLayers = [];
+  const m = state.modes[state.mode];
+  const yellow = L.polygon(corridorPolygon(m.yellow), { color: "#eab308", weight: 1, fillColor: "#eab308", fillOpacity: .16, opacity: .55 }).addTo(map);
+  const orange = L.polygon(corridorPolygon(m.orange), { color: "#f97316", weight: 1, fillColor: "#f97316", fillOpacity: .22, opacity: .65 }).addTo(map);
+  const red = L.polygon(corridorPolygon(m.red), { color: "#ef4444", weight: 1, fillColor: "#ef4444", fillOpacity: .28, opacity: .8 }).addTo(map);
+  const line = L.polyline(linePts, { color: "#334155", weight: 3, dashArray: "8,6", opacity: .9 }).bindPopup(t().axisPopup).addTo(map);
+  const c1 = L.circle(DATA.airport, { radius: m.airportCore * 1000, color: "#ef4444", weight: 1, fillColor: "#ef4444", fillOpacity: .12 }).addTo(map);
+  const c2 = L.circle(DATA.airport, { radius: m.airportWatch * 1000, color: "#f97316", weight: 1, fillColor: "#f97316", fillOpacity: .06, dashArray: "6,5" }).addTo(map);
+  state.corridorLayers.push(yellow, orange, red, line, c1, c2);
+}
+function drawAirport() {
+  if (airportMarker) map.removeLayer(airportMarker);
+  if (airportLabel) map.removeLayer(airportLabel);
+  airportMarker = L.marker(DATA.airport).addTo(map).bindPopup(t().airportPopup);
+  airportLabel = L.marker(DATA.airport, {
+    icon: L.divIcon({ className: "label", html: escapeHtml(t().airportName), iconSize: null })
+  }).addTo(map);
+}
+function refreshPlaces() {
+  placeLayer.clearLayers();
+  const tbody = document.querySelector("#placeTable tbody");
+  tbody.textContent = "";
+  DATA.places.forEach(raw => {
+    const pl = localizedPlace(raw);
+    const p = [pl.lat, pl.lng];
+    const r = riskAt(p);
+    L.marker(p, { icon: makeDot(markerColor(r.key)) })
+      .bindPopup(popupHtml(pl.name, p, pl.note))
+      .addTo(placeLayer);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${escapeHtml(pl.name)}</td>
+      <td><span class="${r.cls}">${escapeHtml(r.level)}</span><br><span class="small">${r.dLine.toFixed(1)} ${t().km} / ${r.dAirport.toFixed(1)} ${t().km}</span></td>
+      <td>${escapeHtml(pl.note)}</td>`;
+    tr.onclick = () => evaluatePoint(pl.name, pl.lat, pl.lng, pl.note);
+    tbody.appendChild(tr);
+  });
+}
+function renderResult() {
+  els.result.innerHTML = state.query
+    ? popupHtml(state.query.name, state.query.p, state.query.note)
+    : escapeHtml(t().resultDefault);
+}
+function updateHash() {
+  const params = new URLSearchParams();
+  params.set("lang", state.lang);
+  params.set("mode", state.mode);
+  if (state.query) {
+    params.set("lat", state.query.p[0].toFixed(6));
+    params.set("lng", state.query.p[1].toFixed(6));
+    params.set("q", state.query.name.slice(0, 80));
+    params.set("z", String(map.getZoom()));
+  }
+  history.replaceState(null, "", `${location.pathname}${location.search}#${params.toString()}`);
+}
+function evaluatePoint(name, lat, lng, note = "", opts = {}) {
+  const p = [Number(lat), Number(lng)];
+  if (state.queryLayer) map.removeLayer(state.queryLayer);
+  state.query = { name, p, note };
+  state.queryLayer = L.marker(p).addTo(map).bindPopup(popupHtml(name, p, note)).openPopup();
+  if (opts.move !== false) map.setView(p, opts.zoom || 15);
+  renderResult();
+  if (opts.hash !== false) updateHash();
+}
+function clearQuery() {
+  if (state.queryLayer) map.removeLayer(state.queryLayer);
+  state.queryLayer = null;
+  state.query = null;
+  els.searchResults.textContent = "";
+  renderResult();
+  updateHash();
+}
+function renderSearchResults(items) {
+  els.searchResults.textContent = "";
+  if (!items.length) return;
+  const label = document.createElement("p");
+  label.className = "small";
+  label.textContent = t().chooseResult;
+  els.searchResults.appendChild(label);
+  items.forEach(item => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "result-choice";
+    button.innerHTML = `${escapeHtml(item.display_name || item.name)}<br><span class="small">${Number(item.lat).toFixed(5)}, ${Number(item.lon).toFixed(5)}</span>`;
+    button.onclick = () => evaluatePoint(item.display_name || item.name, item.lat, item.lon);
+    els.searchResults.appendChild(button);
+  });
+}
+async function searchPlace() {
+  const q = els.searchBox.value.trim();
+  if (!q) return;
+  els.searchResults.textContent = "";
+  els.result.textContent = t().searching;
+  try {
+    const url = new URL("https://nominatim.openstreetmap.org/search");
+    url.search = new URLSearchParams({
+      format: "json",
+      limit: "5",
+      "accept-language": state.lang === "zh" ? "zh-CN" : "en",
+      countrycodes: "cn",
+      viewbox: "119.75,30.55,120.65,30.05",
+      bounded: "1",
+      q: `${q} ${state.lang === "zh" ? "杭州" : "Hangzhou"}`
+    }).toString();
+    const res = await fetch(url.toString(), { headers: { "Accept": "application/json" } });
+    if (!res.ok) throw new Error(`Nominatim ${res.status}`);
+    const arr = await res.json();
+    if (!arr || arr.length === 0) {
+      els.result.textContent = t().noResults;
+      return;
+    }
+    renderSearchResults(arr);
+    evaluatePoint(arr[0].display_name || q, Number(arr[0].lat), Number(arr[0].lon));
+  } catch (err) {
+    els.result.textContent = t().searchError;
+  }
+}
+function locateUser() {
+  if (!navigator.geolocation) {
+    els.result.textContent = t().locateError;
+    return;
+  }
+  els.result.textContent = t().locating;
+  navigator.geolocation.getCurrentPosition(
+    pos => evaluatePoint(t().currentLocation, pos.coords.latitude, pos.coords.longitude),
+    () => { els.result.textContent = t().locateError; },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+  );
+}
+async function shareLink() {
+  updateHash();
+  const url = location.href || SITE_URL;
+  let copied = false;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(url);
+      copied = true;
+    }
+  } catch (err) {
+    copied = false;
+  }
+  if (!copied) {
+    const textarea = document.createElement("textarea");
+    textarea.value = url;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      copied = document.execCommand("copy");
+    } catch (err) {
+      copied = false;
+    }
+    textarea.remove();
+  }
+  if (copied) {
+    els.shareBtn.textContent = t().copied;
+    setTimeout(() => { els.shareBtn.textContent = t().share; }, 1800);
+  } else {
+    els.result.textContent = `${t().copyFailed} ${url}`;
+  }
+}
+function applyLanguage() {
+  const c = t();
+  document.documentElement.lang = c.htmlLang;
+  document.title = c.pageTitle;
+  document.querySelector("meta[name='description']").setAttribute("content", c.description);
+  document.querySelector("meta[property='og:title']").setAttribute("content", c.title);
+  document.querySelector("meta[property='og:description']").setAttribute("content", c.description);
+  els.title.textContent = c.title;
+  els.subtitle.textContent = c.subtitle;
+  els.leadNotice.innerHTML = c.lead;
+  els.legendTitle.textContent = c.legendTitle;
+  els.legendRows.innerHTML = c.legend.map(([color, label]) =>
+    `<div class="legend-row"><span class="swatch" style="background:${color}"></span><span>${label}</span></div>`
+  ).join("");
+  els.modeLabel.textContent = c.modeLabel;
+  els.modeSelect.innerHTML = Object.entries(c.modes)
+    .map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`)
+    .join("");
+  els.modeSelect.value = state.mode;
+  els.fitBtn.textContent = c.fit;
+  els.clearBtn.textContent = c.clear;
+  els.searchTitle.textContent = c.searchTitle;
+  els.searchBox.placeholder = c.searchPlaceholder;
+  els.searchBtn.textContent = c.searchButton;
+  els.searchHint.textContent = c.searchHint;
+  els.locateBtn.textContent = c.locate;
+  els.shareBtn.textContent = c.share;
+  els.checklistTitle.textContent = c.checklistTitle;
+  els.checklist.innerHTML = c.checklist.map(item => `<li>${escapeHtml(item)}</li>`).join("");
+  els.placesTitle.textContent = c.placesTitle;
+  els.thPlace.textContent = c.thPlace;
+  els.thRisk.textContent = c.thRisk;
+  els.thNote.textContent = c.thNote;
+  els.methodTitle.textContent = c.methodTitle;
+  els.methodText.textContent = c.method;
+  els.privacyText.textContent = c.privacy;
+  els.sourceLinks.innerHTML = c.sources
+    .map(([label, url]) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`)
+    .join("");
+  els.offlineNotice.textContent = c.offline;
+  els.langZh.setAttribute("aria-pressed", state.lang === "zh" ? "true" : "false");
+  els.langEn.setAttribute("aria-pressed", state.lang === "en" ? "true" : "false");
+  drawAirport();
+  drawCorridors();
+  refreshPlaces();
+  renderResult();
+}
+function setLanguage(lang) {
+  state.lang = lang;
+  localStorage.setItem("jianqiao-noise-lang", lang);
+  applyLanguage();
+  if (state.queryLayer && state.query) {
+    state.queryLayer.bindPopup(popupHtml(state.query.name, state.query.p, state.query.note));
+  }
+  updateHash();
+}
+function hydrateFromHash() {
+  const hash = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
+  const params = new URLSearchParams(hash);
+  const lang = params.get("lang");
+  const mode = params.get("mode");
+  if (lang === "zh" || lang === "en") state.lang = lang;
+  if (mode && state.modes[mode]) state.mode = mode;
+  const lat = Number(params.get("lat"));
+  const lng = Number(params.get("lng"));
+  if (params.has("lat") && params.has("lng") && Number.isFinite(lat) && Number.isFinite(lng)) {
+    state.restoredFromHash = true;
+    state.query = {
+      name: params.get("q") || (state.lang === "zh" ? "分享的位置" : "Shared location"),
+      p: [lat, lng],
+      note: ""
+    };
+    setTimeout(() => evaluatePoint(state.query.name, lat, lng, "", {
+      zoom: Number(params.get("z")) || 15,
+      hash: false
+    }), 0);
+  }
+}
+
+els.langZh.onclick = () => setLanguage("zh");
+els.langEn.onclick = () => setLanguage("en");
+els.modeSelect.onchange = e => {
+  state.mode = e.target.value;
+  drawCorridors();
+  refreshPlaces();
+  if (state.query) evaluatePoint(state.query.name, state.query.p[0], state.query.p[1], state.query.note, { move: false });
+  updateHash();
+};
+els.fitBtn.onclick = () => map.fitBounds(L.latLngBounds([DATA.west, DATA.east]).pad(.15));
+els.clearBtn.onclick = clearQuery;
+els.searchBtn.onclick = searchPlace;
+els.searchBox.addEventListener("keydown", e => { if (e.key === "Enter") searchPlace(); });
+els.locateBtn.onclick = locateUser;
+els.shareBtn.onclick = shareLink;
+map.on("click", e => evaluatePoint(t().clicked, e.latlng.lat, e.latlng.lng, "", { move: false }));
+
+setTimeout(() => {
+  const tiles = document.querySelectorAll(".leaflet-tile-loaded").length;
+  if (tiles < 3) els.offlineNotice.style.display = "block";
+}, 3500);
+
+hydrateFromHash();
+applyLanguage();
+if (!state.restoredFromHash) {
+  map.fitBounds(L.latLngBounds([DATA.west, DATA.east]).pad(.12));
+}
+</script>
+</body>
+</html>

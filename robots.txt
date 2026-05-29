@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://myshkin451.github.io/hangzhou-jianqiao-noise-corridor/sitemap.xml
