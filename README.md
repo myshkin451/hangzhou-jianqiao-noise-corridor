@@ -11,7 +11,7 @@ A bilingual map for renters and home buyers in Hangzhou, using public sources an
 - Click any location on the map to see a rough risk level.
 - Search a neighborhood, compound, road, or metro station.
 - Switch between Chinese and English.
-- Switch between standard, light, and satellite basemaps.
+- Switch between standard, light, Esri street, satellite, and labeled satellite basemaps.
 - Share a selected location with a link.
 - Use the on-site checklist before signing a lease or buying a home.
 
